@@ -21,4 +21,7 @@ dependencyResolutionManagement {
 
 rootProject.name = "MobilBankGroupTask"
 include(":app")
- 
+include(":domain")
+include(":data")
+include(":di")
+include(":presentation")
