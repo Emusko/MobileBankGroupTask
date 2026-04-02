@@ -1,6 +1,8 @@
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.kotlin.kapt)
+    alias(libs.plugins.hilt.android)
 }
 
 android {
@@ -18,4 +20,15 @@ android {
     kotlinOptions {
         jvmTarget = "11"
     }
+}
+
+dependencies {
+    api(project(":domain"))
+    api(project(":data"))
+
+    implementation(libs.hilt.android)
+    kapt(libs.hilt.compiler)
+
+    implementation(libs.okhttp)
+    implementation(libs.kotlinx.coroutines.core)
 }
