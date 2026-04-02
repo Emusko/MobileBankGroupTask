@@ -29,6 +29,7 @@ android {
 
 dependencies {
     implementation(project(":domain"))
+    implementation(project(":uiKit"))
 
     implementation(libs.hilt.android)
     kapt(libs.hilt.compiler)

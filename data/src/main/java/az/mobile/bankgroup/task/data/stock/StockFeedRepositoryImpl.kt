@@ -45,6 +45,7 @@ class StockFeedRepositoryImpl @Inject constructor(
     private val scope = CoroutineScope(SupervisorJob() + ioDispatcher)
     private val mutex = Mutex()
     private var feedJob: Job? = null
+    private var activeFeedRequests: Int = 0
 
     private val _stocks = MutableStateFlow(StockCatalog.createInitialStocks())
     private val _feedRunning = MutableStateFlow(false)
@@ -55,6 +56,7 @@ class StockFeedRepositoryImpl @Inject constructor(
 
     override suspend fun startFeed() {
         mutex.withLock {
+            activeFeedRequests += 1
             if (feedJob?.isActive == true) return
             feedJob = scope.launch {
                 try {
@@ -69,6 +71,12 @@ class StockFeedRepositoryImpl @Inject constructor(
 
     override suspend fun stopFeed() {
         val job = mutex.withLock {
+            if (activeFeedRequests > 0) {
+                activeFeedRequests -= 1
+            }
+            if (activeFeedRequests > 0) {
+                return@withLock null
+            }
             feedJob.also { feedJob = null }
         }
         job?.cancelAndJoin()

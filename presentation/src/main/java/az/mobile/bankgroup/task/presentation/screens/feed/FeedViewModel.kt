@@ -1,5 +1,6 @@
 package az.mobile.bankgroup.task.presentation.screens.feed
 
+import az.mobile.bankgroup.task.domain.model.Stock
 import az.mobile.bankgroup.task.domain.usecase.ObserveStockFeedRunningUseCase
 import az.mobile.bankgroup.task.domain.usecase.ObserveStocksUseCase
 import az.mobile.bankgroup.task.domain.usecase.StartStockFeedUseCase
@@ -18,11 +19,12 @@ class FeedViewModel @Inject constructor(
     initialState = FeedState(),
     reducer = FeedReducer(),
 ) {
+    private var previousPrices: Map<String, Double> = emptyMap()
 
     init {
         launchInViewModelScope {
             observeStocks().collect { stocks ->
-                dispatch(FeedAction.StocksUpdated(stocks))
+                dispatch(FeedAction.StocksUpdated(stocks.toUiItems()))
             }
         }
         launchInViewModelScope {
@@ -44,6 +46,30 @@ class FeedViewModel @Inject constructor(
                     }
                 }
             }
+            is FeedIntent.SymbolClicked -> Unit
         }
+    }
+
+    private fun List<Stock>.toUiItems(): List<FeedStockItem> {
+        val currentPriceMap = associate { it.symbol to it.price }
+        val mapped = map { stock ->
+            val previous = previousPrices[stock.symbol]
+            val indicator = if (previous == null || stock.price >= previous) {
+                FeedPriceIndicator.Up
+            } else {
+                FeedPriceIndicator.Down
+            }
+            val shouldFlash = previous != null && stock.price != previous
+            FeedStockItem(
+                symbol = stock.symbol,
+                name = stock.name,
+                description = stock.description,
+                price = stock.price,
+                indicator = indicator,
+                shouldFlash = shouldFlash,
+            )
+        }.sortedByDescending { it.price }
+        previousPrices = currentPriceMap
+        return mapped
     }
 }
