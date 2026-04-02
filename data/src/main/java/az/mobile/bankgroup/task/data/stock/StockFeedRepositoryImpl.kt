@@ -21,8 +21,6 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withTimeoutOrNull
-import kotlinx.serialization.builtins.ListSerializer
-import kotlinx.serialization.json.Json
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.random.Random
@@ -31,16 +29,12 @@ import okhttp3.Request
 import okhttp3.Response
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
+import org.json.JSONArray
 
 class StockFeedRepositoryImpl @Inject constructor(
     private val client: OkHttpClient,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) : StockFeedRepository {
-
-    private val json = Json {
-        ignoreUnknownKeys = true
-        encodeDefaults = true
-    }
 
     private val scope = CoroutineScope(SupervisorJob() + ioDispatcher)
     private val mutex = Mutex()
@@ -97,10 +91,7 @@ class StockFeedRepositoryImpl @Inject constructor(
                         )
                     }
                     val payload = updatedStocks.map(StockWireDto::fromDomain)
-                    val jsonText = json.encodeToString(
-                        ListSerializer(StockWireDto.serializer()),
-                        payload,
-                    )
+                    val jsonText = JSONArray(payload.map(StockWireDto::toJsonObject)).toString()
                     val sent = webSocket.send(jsonText)
                     if (!sent) {
                         throw IllegalStateException("WebSocket send() returned false for bulk stock payload")
@@ -111,10 +102,13 @@ class StockFeedRepositoryImpl @Inject constructor(
                         "Echo timeout (${ECHO_TIMEOUT_MS}ms) for bulk stock payload",
                     )
                     val parsed = try {
-                        json.decodeFromString(
-                            ListSerializer(StockWireDto.serializer()),
-                            echoed,
-                        )
+                        val array = JSONArray(echoed)
+                        val result = mutableListOf<StockWireDto>()
+                        repeat(array.length()) { index ->
+                            val jsonObject = array.optJSONObject(index) ?: return@repeat
+                            result.add(StockWireDto.fromJsonObject(jsonObject))
+                        }
+                        result
                     } catch (e: Exception) {
                         continue
                     }
